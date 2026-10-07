@@ -38,7 +38,6 @@
             position: relative;
         }
 
-        /* Nút 3 chấm góc trái */
         .menu-container {
             position: absolute;
             top: 15px;
@@ -98,14 +97,9 @@
             font-size: 16px;
             margin-bottom: 20px;
             outline: none;
-            transition: 0.3s;
+            box-sizing: border-box;
         }
 
-        input[type="password"]:focus {
-            border-color: #777;
-        }
-
-        /* Style khi bị khóa */
         input:disabled, button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -135,14 +129,13 @@
         }
 
         .lockout-msg {
-            color: #ff9800; /* Màu cam cảnh báo */
+            color: #ff9800;
             margin-top: 15px;
             font-size: 14px;
             display: none;
             font-weight: bold;
         }
 
-        /* Modal Thông tin */
         .modal {
             display: none;
             position: fixed;
@@ -165,7 +158,6 @@
 <body>
 
     <div class="lock-container">
-        <!-- Menu góc trái -->
         <div class="menu-container">
             <button class="menu-btn" onclick="toggleMenu()">⋮</button>
             <div class="dropdown" id="dropdownMenu">
@@ -185,7 +177,6 @@
         <p class="lockout-msg" id="lockoutMsg"></p>
     </div>
 
-    <!-- Hộp thoại thông tin -->
     <div class="modal" id="infoModal">
         <div class="modal-content">
             <h3>Thông tin</h3>
@@ -195,36 +186,34 @@
     </div>
 
     <script>
-        // --- CẤU HÌNH SUPABASE ---
-        const SUPABASE_URL = 'https://akufleimlxcnftsdmejq.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_g4T5Js-z7iFpSF9ebl5xtQ_HJMUmOKB';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // --- THAY THÔNG TIN CỦA BẠN VÀO 2 DÒNG NÀY ---
+        const SUPABASE_URL = 'https://akufleimlxcnftsdmejq.supabase.co'; 
+        const SUPABASE_KEY = 'sb_publishable_g4T5Js-z7iFpSF9ebl5xtQ_HJMUmOKB'; 
+        
+        // Sửa lỗi khai báo trùng tên biến
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // --- CẤU HÌNH NHÂN VẬT & KHÓA ---
+        // Lấy ID từ subdomain hoặc mặc định
         let hostParts = window.location.hostname.split('.');
-        let charId = (hostParts.length > 2) ? hostParts[0] : 'nhanvat1'; 
+        let charId = (hostParts.length > 2 && hostParts[0] !== 'www') ? hostParts[0] : 'nhanvat1'; 
         
         const MAX_ATTEMPTS = 3;
-        const LOCKOUT_DURATION = 24 * 60 * 60 * 1000; // 24 giờ tính bằng mili-giây
+        const LOCKOUT_DURATION = 24 * 60 * 60 * 1000;
 
-        // Kiểm tra xem trình duyệt này có đang bị khóa không ngay khi vừa load trang
         function checkLockoutStatus() {
             const lockData = JSON.parse(localStorage.getItem(`lock_${charId}`)) || { attempts: 0, lockUntil: 0 };
             const now = Date.now();
 
             if (lockData.lockUntil > now) {
-                // Vẫn đang trong thời gian khóa
                 applyLockoutUI();
                 return true;
             } else if (lockData.lockUntil > 0 && lockData.lockUntil <= now) {
-                // Đã hết 24h, mở khóa lại
                 localStorage.removeItem(`lock_${charId}`);
                 return false;
             }
             return false;
         }
 
-        // Áp dụng giao diện khóa (làm mờ ô nhập, không cho click)
         function applyLockoutUI() {
             document.getElementById('password').disabled = true;
             document.getElementById('unlockBtn').disabled = true;
@@ -236,18 +225,15 @@
             document.getElementById('subtitleText').innerText = "Truy cập tạm thời bị khóa";
         }
 
-        // Ghi nhận nhập sai
         function recordFailedAttempt() {
             let lockData = JSON.parse(localStorage.getItem(`lock_${charId}`)) || { attempts: 0, lockUntil: 0 };
             lockData.attempts += 1;
 
             if (lockData.attempts >= MAX_ATTEMPTS) {
-                // Nếu sai 3 lần, cài đặt thời gian khóa (hiện tại + 24h)
                 lockData.lockUntil = Date.now() + LOCKOUT_DURATION;
                 localStorage.setItem(`lock_${charId}`, JSON.stringify(lockData));
                 applyLockoutUI();
             } else {
-                // Vẫn còn cơ hội nhập
                 localStorage.setItem(`lock_${charId}`, JSON.stringify(lockData));
                 const errorMsg = document.getElementById('errorMsg');
                 errorMsg.innerText = `Mật khẩu sai! Bạn còn ${MAX_ATTEMPTS - lockData.attempts} lần thử.`;
@@ -255,53 +241,56 @@
             }
         }
 
-        // Khởi tạo trang
         async function loadData() {
-            // Check khóa trước
             checkLockoutStatus();
 
-            const { data, error } = await supabase.rpc('get_character_info', { char_id: charId });
-            
-            if (data) {
-                document.getElementById('charName').innerText = data.name || "Không rõ tên";
-                document.getElementById('charInfo').innerText = data.info || "Không có thông tin thêm.";
-            } else {
-                document.getElementById('charName').innerText = "Nhân vật không tồn tại";
+            try {
+                const { data, error } = await supabaseClient.rpc('get_character_info', { char_id: charId });
+                
+                if (data && data.name) {
+                    document.getElementById('charName').innerText = data.name;
+                    document.getElementById('charInfo').innerText = data.info || "Không có thông tin thêm.";
+                } else {
+                    document.getElementById('charName').innerText = "Không tìm thấy nhân vật";
+                    document.getElementById('subtitleText').innerText = "Vui lòng kiểm tra lại đường link";
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('charName').innerText = "Lỗi kết nối";
             }
         }
         loadData();
 
-        // Xử lý mở khóa
         async function unlock() {
-            // Check khóa một lần nữa trước khi gửi request để chặn triệt để
             if (checkLockoutStatus()) return;
 
             const pass = document.getElementById('password').value;
             if(!pass) return;
 
-            // Nút đang load...
             const btn = document.getElementById('unlockBtn');
             btn.innerText = "Đang kiểm tra...";
 
-            const { data: secretLink, error } = await supabase.rpc('unlock_link', { 
-                char_id: charId, 
-                pass: pass 
-            });
+            try {
+                const { data: secretLink, error } = await supabaseClient.rpc('unlock_link', { 
+                    char_id: charId, 
+                    pass: pass 
+                });
 
-            btn.innerText = "Mở khóa";
+                btn.innerText = "Mở khóa";
 
-            if (secretLink) {
-                // Nếu đúng, reset số lần nhập sai và chuyển hướng
-                localStorage.removeItem(`lock_${charId}`);
-                document.getElementById('errorMsg').style.display = 'none';
-                window.location.href = secretLink;
-            } else {
-                // Ghi nhận nhập sai
-                recordFailedAttempt();
+                if (secretLink) {
+                    localStorage.removeItem(`lock_${charId}`);
+                    document.getElementById('errorMsg').style.display = 'none';
+                    window.location.href = secretLink;
+                } else {
+                    recordFailedAttempt();
+                }
+            } catch (err) {
+                btn.innerText = "Mở khóa";
+                alert("Lỗi kết nối tới cơ sở dữ liệu!");
             }
         }
 
-        // --- CÁC HÀM GIAO DIỆN KHÁC ---
         function toggleMenu() {
             document.getElementById('dropdownMenu').classList.toggle('show');
         }
